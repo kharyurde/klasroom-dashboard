@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useRouter } from "../lib/router";
 import { supabase } from "../lib/supabase";
+import { apiGet } from "../lib/apiClient";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { Button, Spinner, Badge, EmptyState } from "../components/ui";
@@ -10,8 +11,10 @@ import { formatMoney } from "../lib/format";
 import { ArrowLeft, ArrowRight, CheckCircle2, AlertTriangle, CreditCard, Building2, User, Lock } from "lucide-react";
 import type { School, ClassLevel, AcademicSession, Ward } from "../lib/types";
 
+type ApiEnvelope<T> = { success: boolean; statusCode: number; message: string; data: T; errors: unknown; timestamp: string };
+
 export function ApplyToSchoolPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { route, navigate } = useRouter();
   const toast = useToast();
   const slug = route.segments[1]; // /apply/:slug
@@ -42,18 +45,38 @@ export function ApplyToSchoolPage() {
       setSessions((sess.data as AcademicSession[]) ?? []);
       const current = (sess.data as AcademicSession[])?.find((x) => x.is_current);
       if (current) setSessionId(current.id);
-      if (user) {
-        const { data: w } = await supabase.from("wards").select("*").eq("parent_id", user.id).order("created_at");
-        setWards((w as Ward[]) ?? []);
-        const preWard = route.query.get("ward");
-        if (preWard && (w as Ward[])?.some((x) => x.id === preWard)) setSelectedWard(preWard);
-        else if ((w as Ward[])?.length === 1) setSelectedWard((w as Ward[])[0].id);
+      if (user && user.userType === "parent") {
+        // Wards are fetched through the authenticated Express API (not a direct
+        // Supabase call) — the browser's Supabase client has no session since
+        // auth is handled by our own JWTs, so a direct query here is rejected
+        // by RLS with a 401.
+        try {
+          const wardsRes = await apiGet<ApiEnvelope<Ward[]>>("/api/parent/wards");
+          const w = wardsRes.data ?? [];
+          setWards(w);
+          const preWard = route.query.get("ward");
+          if (preWard && w.some((x) => x.id === preWard)) setSelectedWard(preWard);
+          else if (w.length === 1) setSelectedWard(w[0].id);
+        } catch (err) {
+          console.error(err);
+          setWards([]);
+        }
       }
       setLoading(false);
     })();
   }, [slug, user, route.query]);
 
-  if (loading) {
+  // Not logged in (or logged in as a non-parent) -> send straight to login,
+  // preserving this page as the ?next= destination so they land back here
+  // once authenticated.
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || user.userType !== "parent") {
+      navigate(`/login?next=${encodeURIComponent(route.path)}`);
+    }
+  }, [authLoading, user, route.path, navigate]);
+
+  if (loading || authLoading || !user || user.userType !== "parent") {
     return <div className="min-h-screen grid place-items-center"><Spinner className="text-brand-600" size={32} /></div>;
   }
   if (!school) {
@@ -61,14 +84,6 @@ export function ApplyToSchoolPage() {
       <div className="min-h-screen grid place-items-center p-6">
         <EmptyState icon={<Building2 className="h-7 w-7" />} title="School not found" description="This school isn't on Klasroom yet."
           action={<Link to="/apply" className="btn-primary">Browse schools</Link>} />
-      </div>
-    );
-  }
-  if (!user || user.userType !== "parent") {
-    return (
-      <div className="min-h-screen grid place-items-center p-6">
-        <EmptyState icon={<Lock className="h-7 w-7" />} title="Sign in required" description="Create a parent account or sign in to apply to this school."
-          action={<Link to={`/register?next=/apply/${slug}`} className="btn-primary">Create account</Link>} />
       </div>
     );
   }

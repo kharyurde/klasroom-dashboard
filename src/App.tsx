@@ -14,6 +14,7 @@ import { TeacherPortalShell } from "./components/TeacherPortalShell";
 import { StudentPortalShell } from "./components/StudentPortalShell";
 import { PlatformPortalShell } from "./components/PlatformPortalShell";
 import { ParentDashboardPage } from "./pages/portal/ParentDashboardPage";
+import { WardsListPage } from "./pages/portal/WardsListPage";
 import { WardFormPage } from "./pages/portal/WardFormPage";
 import { ApplicationsListPage } from "./pages/portal/ApplicationsListPage";
 import { ApplicationDetailPage } from "./pages/portal/ApplicationDetailPage";
@@ -175,6 +176,7 @@ function ParentRoutes() {
   const path = route.path;
   if (path === "/portal") return <ParentDashboardPage />;
   if (path === "/portal/wards/new") return <WardFormPage />;
+  if (path === "/portal/wards/") return <WardsListPage />;
   if (path === "/portal/applications") return <ApplicationsListPage />;
   if (path.startsWith("/portal/applications/")) return <ApplicationDetailPage />;
   if (path === "/portal/payments") return <PaymentsPage />;

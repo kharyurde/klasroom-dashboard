@@ -42,6 +42,7 @@ export function ParentPortalShell({ children }: { children: ReactNode }) {
 
   const nav = [
     { to: "/portal", label: "Dashboard", icon: LayoutDashboard, exact: true },
+    { to: "/portal/wards", label: "Wards", icon: FileText },
     { to: "/portal/applications", label: "Applications", icon: FileText },
     { to: "/portal/payments", label: "Payments", icon: CreditCard },
     { to: "/portal/statement", label: "Statement", icon: Receipt },
@@ -116,9 +117,8 @@ export function ParentPortalShell({ children }: { children: ReactNode }) {
                             data.setActiveWardId(c.ward.id);
                             setSwitcherOpen(false);
                           }}
-                          className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-ink-50 transition ${
-                            c.ward.id === data.activeWardId ? "bg-brand-50" : ""
-                          }`}
+                          className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-ink-50 transition ${c.ward.id === data.activeWardId ? "bg-brand-50" : ""
+                            }`}
                         >
                           <Avatar name={`${c.ward.first_name} ${c.ward.last_name}`} src={c.ward.photo_url} size={32} />
                           <div className="min-w-0 flex-1">
@@ -127,8 +127,8 @@ export function ParentPortalShell({ children }: { children: ReactNode }) {
                               {c.enrollments.length > 0
                                 ? c.enrollments.map((e) => e.school?.name).join(", ")
                                 : c.applications.length > 0
-                                ? `${c.applications.length} application${c.applications.length > 1 ? "s" : ""}`
-                                : "No applications yet"}
+                                  ? `${c.applications.length} application${c.applications.length > 1 ? "s" : ""}`
+                                  : "No applications yet"}
                             </p>
                           </div>
                           {c.ward.id === data.activeWardId && <ChevronRight className="h-4 w-4 text-brand-600" />}
@@ -197,9 +197,8 @@ export function ParentPortalShell({ children }: { children: ReactNode }) {
       <div className="flex">
         {/* Sidebar */}
         <aside
-          className={`fixed lg:sticky top-16 z-30 h-[calc(100vh-4rem)] w-64 shrink-0 bg-white border-r border-ink-100 transition-transform lg:translate-x-0 ${
-            menuOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`fixed lg:sticky top-16 z-30 h-[calc(100vh-4rem)] w-64 shrink-0 bg-white border-r border-ink-100 transition-transform lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           <nav className="p-3 space-y-1">
             {nav.map((n) => (
@@ -207,11 +206,10 @@ export function ParentPortalShell({ children }: { children: ReactNode }) {
                 key={n.to}
                 to={n.to}
                 onClick={() => setMenuOpen(false)}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                  isActive(n.to, n.exact)
-                    ? "bg-brand-50 text-brand-800 ring-1 ring-brand-100"
-                    : "text-ink-600 hover:bg-ink-50 hover:text-ink-900"
-                }`}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${isActive(n.to, n.exact)
+                  ? "bg-brand-50 text-brand-800 ring-1 ring-brand-100"
+                  : "text-ink-600 hover:bg-ink-50 hover:text-ink-900"
+                  }`}
               >
                 <n.icon className="h-4.5 w-4.5" />
                 {n.label}
