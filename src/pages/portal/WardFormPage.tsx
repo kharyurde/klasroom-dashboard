@@ -30,6 +30,7 @@ export function WardFormPage() {
     try {
       const response = await apiPost<ApiEnvelope<Ward>>("/api/parent/wards", {
         first_name: form.first_name.trim(),
+        middle_name: form.middle_name.trim() || null,
         last_name: form.last_name.trim(),
         date_of_birth: form.date_of_birth || null,
         gender: form.gender as "male" | "female" | "other",
@@ -43,7 +44,10 @@ export function WardFormPage() {
       return;
     }
     setLoading(false);
-    toast({ kind: "success", title: "Ward added", message: `${form.first_name} ${form.last_name} added to your account.` });
+    toast({
+      kind: "success", title: "Ward added", message: `${form.first_name}${form.middle_name ? ` ${form.middle_name}` : ""
+        } ${form.last_name} added to your account.`
+    });
     if (next) {
       navigate(next + (next.includes("?") ? "&" : "?") + "ward=" + data.id);
     } else {

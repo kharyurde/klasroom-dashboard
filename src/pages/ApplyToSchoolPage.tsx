@@ -252,7 +252,7 @@ export function ApplyToSchoolPage() {
 
                 {wards.map((w) => (
                   <option key={w.id} value={w.id}>
-                    {`${w.first_name} ${w.last_name} • DOB: ${formatLongDate(
+                    {`${w.first_name} ${w.middle_name} ${w.last_name} • DOB: ${formatLongDate(
                       w.date_of_birth
                     )}`}
                   </option>
@@ -270,6 +270,7 @@ export function ApplyToSchoolPage() {
                       <div className="flex items-center gap-3">
                         <div className="grid h-12 w-12 place-items-center rounded-full bg-brand-100 text-brand-700 font-semibold text-lg">
                           {ward.first_name[0]}
+                          {ward.middle_name ? ward.middle_name[0] : ""}
                           {ward.last_name[0]}
                         </div>
 

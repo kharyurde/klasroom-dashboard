@@ -84,6 +84,7 @@ export type Ward = {
   id: string;
   parent_id: string;
   first_name: string;
+  middle_name: string | null;
   last_name: string;
   date_of_birth: string | null;
   gender: "male" | "female" | "other" | null;
