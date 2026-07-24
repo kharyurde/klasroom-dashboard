@@ -7,7 +7,7 @@ import { Button } from "../../components/ui";
 import { ArrowLeft, ArrowRight, User, AlertTriangle } from "lucide-react";
 
 type ApiEnvelope<T> = { success: boolean; statusCode: number; message: string; data: T; errors: unknown; timestamp: string };
-type Ward = { id: string; [key: string]: unknown };
+type Ward = { id: string;[key: string]: unknown };
 
 export function WardFormPage() {
   const { user } = useAuth();
@@ -15,7 +15,7 @@ export function WardFormPage() {
   const toast = useToast();
   const next = route.query.get("next");
   const [form, setForm] = useState({
-    first_name: "", last_name: "", date_of_birth: "", gender: "male",
+    first_name: "", last_name: "", middle_name: "", date_of_birth: "", gender: "male",
     blood_group: "", medical_notes: "",
   });
   const [loading, setLoading] = useState(false);
@@ -73,16 +73,46 @@ export function WardFormPage() {
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /> <span>{error}</span>
             </div>
           )}
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-3 gap-4">
             <div>
               <label className="label">First name</label>
-              <input className="input" placeholder="Tunde" required value={form.first_name}
-                onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+              <input
+                className="input"
+                placeholder="Tunde"
+                required
+                value={form.first_name}
+                onChange={(e) =>
+                  setForm({ ...form, first_name: e.target.value })
+                }
+              />
             </div>
+
+            <div>
+              <label className="label">
+                Middle name
+                <span className="text-ink-400 font-normal"> (optional)</span>
+              </label>
+              <input
+                className="input"
+                placeholder="Oluwaseun"
+                value={form.middle_name}
+                onChange={(e) =>
+                  setForm({ ...form, middle_name: e.target.value })
+                }
+              />
+            </div>
+
             <div>
               <label className="label">Last name</label>
-              <input className="input" placeholder="Okafor" required value={form.last_name}
-                onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+              <input
+                className="input"
+                placeholder="Okafor"
+                required
+                value={form.last_name}
+                onChange={(e) =>
+                  setForm({ ...form, last_name: e.target.value })
+                }
+              />
             </div>
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -107,7 +137,7 @@ export function WardFormPage() {
               <select className="input" value={form.blood_group}
                 onChange={(e) => setForm({ ...form, blood_group: e.target.value })}>
                 <option value="">Unknown</option>
-                {["O+","O-","A+","A-","B+","B-","AB+","AB-"].map(b => <option key={b} value={b}>{b}</option>)}
+                {["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"].map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
             <div>

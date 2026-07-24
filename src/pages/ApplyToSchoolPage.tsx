@@ -7,7 +7,7 @@ import { useToast } from "../lib/toast";
 import { Button, Spinner, Badge, EmptyState } from "../components/ui";
 import { processLegacyPayment as processPayment } from "../lib/legacyPayments"; // TODO(migration): see legacyPayments.ts
 import { notifyParent } from "../lib/notify";
-import { formatMoney } from "../lib/format";
+import { formatMoney, formatLongDate } from "../lib/format";
 import { ArrowLeft, ArrowRight, CheckCircle2, AlertTriangle, CreditCard, Building2, User, Lock } from "lucide-react";
 import type { School, ClassLevel, AcademicSession, Ward } from "../lib/types";
 
@@ -228,25 +228,73 @@ export function ApplyToSchoolPage() {
             )}
 
             <div>
-              <label className="label">Select child</label>
-              <div className="space-y-2">
-                {wards.map((w) => (
-                  <label key={w.id} className={`flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition ${selectedWard === w.id ? "ring-2 ring-brand-500 bg-brand-50" : "ring-ink-200 hover:bg-ink-50"}`}>
-                    <input type="radio" name="ward" className="sr-only" checked={selectedWard === w.id} onChange={() => setSelectedWard(w.id)} />
-                    <div className="grid h-10 w-10 place-items-center rounded-full bg-brand-100 text-brand-700 font-semibold">
-                      {w.first_name[0]}{w.last_name[0]}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-ink-900">{w.first_name} {w.last_name}</p>
-                      <p className="text-xs text-ink-500">{w.date_of_birth ?? "DOB not set"}</p>
-                    </div>
-                    {selectedWard === w.id && <CheckCircle2 className="h-5 w-5 text-brand-600" />}
-                  </label>
-                ))}
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="ward" className="label mb-0">
+                  Select child
+                </label>
+
+                <Link
+                  to={`/portal/wards/new?next=/apply/${slug}`}
+                  className="text-sm font-medium text-brand-700 hover:underline"
+                >
+                  + Add child
+                </Link>
               </div>
-              <Link to={`/portal/wards/new?next=/apply/${slug}`} className="inline-flex items-center gap-1.5 text-sm text-brand-700 hover:underline mt-2">
-                <User className="h-3.5 w-3.5" /> Add another child
-              </Link>
+
+              <select
+                id="ward"
+                className="input"
+                required
+                value={selectedWard}
+                onChange={(e) => setSelectedWard(e.target.value)}
+              >
+                <option value="">Choose a child...</option>
+
+                {wards.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {`${w.first_name} ${w.last_name} • DOB: ${formatLongDate(
+                      w.date_of_birth
+                    )}`}
+                  </option>
+                ))}
+              </select>
+
+              {selectedWard && (
+                <div className="mt-3 rounded-xl border border-brand-100 bg-brand-50 p-4">
+                  {(() => {
+                    const ward = wards.find((w) => w.id === selectedWard);
+
+                    if (!ward) return null;
+
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-12 w-12 place-items-center rounded-full bg-brand-100 text-brand-700 font-semibold text-lg">
+                          {ward.first_name[0]}
+                          {ward.last_name[0]}
+                        </div>
+
+                        <div>
+                          <p className="font-semibold text-ink-900">
+                            {ward.first_name} {ward.last_name}
+                          </p>
+
+                          <p className="text-sm text-ink-500">
+                            Date of Birth: {formatLongDate(ward.date_of_birth)}
+                          </p>
+
+                          {ward.gender && (
+                            <p className="text-sm text-ink-500">
+                              Gender:{" "}
+                              {ward.gender.charAt(0).toUpperCase() +
+                                ward.gender.slice(1)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
 
             <div>

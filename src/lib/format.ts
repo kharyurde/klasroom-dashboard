@@ -43,6 +43,20 @@ export function relativeTime(value: string | Date | null): string {
   return formatDate(d);
 }
 
+export function formatLongDate(date: string | null | undefined): string {
+  if (!date) return "DOB not set";
+
+  const d = new Date(date);
+
+  if (Number.isNaN(d.getTime())) return "DOB not set";
+
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
