@@ -4,13 +4,19 @@ import { useAuth } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
 import { Button, Badge } from "../../components/ui";
 import { formatMoney, formatDate } from "../../lib/format";
-import { Building2, CreditCard, Save, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Building2, CreditCard, Save, CheckCircle2, AlertTriangle, ShieldCheck, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
+import { listMfaFactors, enrollTotp, verifyTotpEnrollment, unenrollFactor, type MfaFactor, type TotpEnrollment } from "../../lib/mfa";
 
 export function AdminSettingsPage() {
   const data = useAdminData();
   const { refresh } = useAuth();
   const toast = useToast();
+  const [factors, setFactors] = useState<MfaFactor[]>([]);
+  const [mfaLoading, setMfaLoading] = useState(true);
+  const [enrollment, setEnrollment] = useState<TotpEnrollment | null>(null);
+  const [code, setCode] = useState("");
+  const [mfaBusy, setMfaBusy] = useState(false);
   const [form, setForm] = useState({
     name: "", tagline: "", description: "", address: "", city: "", state: "",
     phone: "", email: "", website: "",
@@ -29,6 +35,51 @@ export function AdminSettingsPage() {
       });
     }
   }, [data.school]);
+
+  useEffect(() => {
+    listMfaFactors().then(setFactors).finally(() => setMfaLoading(false));
+  }, []);
+
+  const startEnrollment = async () => {
+    setMfaBusy(true);
+    try {
+      const result = await enrollTotp();
+      setEnrollment(result);
+    } catch (e) {
+      toast({ kind: "error", title: "Could not start 2FA setup", message: (e as Error).message });
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const confirmEnrollment = async () => {
+    if (!enrollment || code.length < 6) return;
+    setMfaBusy(true);
+    try {
+      await verifyTotpEnrollment(enrollment.factorId, code);
+      toast({ kind: "success", title: "Two-factor authentication enabled" });
+      setEnrollment(null);
+      setCode("");
+      setFactors(await listMfaFactors());
+    } catch (e) {
+      toast({ kind: "error", title: "Invalid code", message: (e as Error).message });
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const removeFactor = async (factorId: string) => {
+    setMfaBusy(true);
+    try {
+      await unenrollFactor(factorId);
+      toast({ kind: "success", title: "Two-factor authentication removed" });
+      setFactors(await listMfaFactors());
+    } catch (e) {
+      toast({ kind: "error", title: "Could not remove", message: (e as Error).message });
+    } finally {
+      setMfaBusy(false);
+    }
+  };
 
   const save = async () => {
     if (!data.school) return;
@@ -100,6 +151,57 @@ export function AdminSettingsPage() {
               <p className="font-medium">No payment processor connected.</p>
               <p className="text-xs mt-0.5">Payments are currently simulated. Connect Stripe so fee payments land directly in your account.</p>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Security: two-factor authentication */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-ink-900 text-white">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-ink-900">Two-factor authentication</p>
+            <p className="text-xs text-ink-500">Require an authenticator app code at sign-in, on top of your password.</p>
+          </div>
+        </div>
+
+        {mfaLoading ? null : factors.length > 0 && !enrollment ? (
+          <div className="space-y-2">
+            {factors.map((f) => (
+              <div key={f.id} className="rounded-xl bg-brand-50 ring-1 ring-brand-100 p-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm text-brand-800">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>{f.friendly_name ?? "Authenticator app"} · {f.status === "verified" ? "Active" : "Pending verification"}</span>
+                </div>
+                <button onClick={() => removeFactor(f.id)} disabled={mfaBusy} className="text-xs font-semibold text-rose-600 hover:underline">Remove</button>
+              </div>
+            ))}
+          </div>
+        ) : enrollment ? (
+          <div className="space-y-3">
+            <div className="rounded-xl bg-ink-50 p-4 flex flex-col items-center gap-3">
+              <img src={enrollment.qrCode} alt="Scan with your authenticator app" className="h-40 w-40 rounded-lg bg-white p-2" />
+              <p className="text-xs text-ink-500">Can't scan? Enter this key manually: <span className="font-mono">{enrollment.secret}</span></p>
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="label">6-digit code</label>
+                <input className="input" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" />
+              </div>
+              <Button onClick={confirmEnrollment} loading={mfaBusy} disabled={code.length < 6}>Verify</Button>
+              <Button variant="ghost" onClick={() => { setEnrollment(null); setCode(""); }}>Cancel</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-gold-50 ring-1 ring-gold-100 p-3 flex items-start gap-2 text-sm text-gold-800">
+            <Smartphone className="h-4 w-4 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium">Two-factor authentication is off.</p>
+              <p className="text-xs mt-0.5">We recommend enabling it, since this account can manage payments and student records.</p>
+            </div>
+            <Button variant="secondary" onClick={startEnrollment} loading={mfaBusy} className="shrink-0">Enable</Button>
           </div>
         )}
       </div>

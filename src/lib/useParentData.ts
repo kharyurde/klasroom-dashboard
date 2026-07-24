@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "./supabase";
 import { useAuth } from "./auth";
 import { useRouter } from "./router";
+import { apiGet } from "./apiClient";
 import type { Ward, Application, Enrollment, School, Payment, NotificationRow } from "./types";
 
 export type WardContext = {
@@ -23,7 +23,20 @@ export type ParentData = {
   activeContext: WardContext | null;
 };
 
+type ApiEnvelope<T> = {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  data: T;
+  errors: unknown;
+  timestamp: string;
+};
+
 let cache: { schools: School[] } | null = null;
+
+type ParentApplication = Application & {
+  school?: School;
+};
 
 export function useParentData(): ParentData {
   const { user } = useAuth();
@@ -37,9 +50,15 @@ export function useParentData(): ParentData {
 
   const loadSchools = useCallback(async (): Promise<School[]> => {
     if (cache?.schools?.length) return cache.schools;
-    const { data } = await supabase.from("schools").select("*").order("name");
-    cache = { schools: (data as School[]) ?? [] };
-    return cache.schools;
+
+    const response = await apiGet<ApiEnvelope<School[]>>("/api/schools");
+    const schools = response.data;
+
+    cache = {
+      schools,
+    };
+
+    return schools;
   }, []);
 
   const reload = useCallback(async () => {
@@ -47,60 +66,71 @@ export function useParentData(): ParentData {
       setLoading(false);
       return;
     }
+
     setLoading(true);
-    const [wardsRes, schools] = await Promise.all([
-      supabase.from("wards").select("*").eq("parent_id", user.id).order("created_at"),
-      loadSchools(),
-    ]);
-    const wardsList = (wardsRes.data as Ward[]) ?? [];
-    setWards(wardsList);
-    setAllSchools(schools);
 
-    if (wardsList.length === 0) {
+    try {
+      const [wardsRes, schools, applicationsRes, enrollmentsRes, notificationsRes] =
+        await Promise.all([
+          apiGet<ApiEnvelope<Ward[]>>("/api/parent/wards"),
+          loadSchools(),
+          apiGet<ApiEnvelope<ParentApplication[]>>("/api/parent/applications"),
+          apiGet<
+            ApiEnvelope<
+              (Enrollment & {
+                class?: { id: string; name: string } | null;
+                school?: School;
+              })[]
+            >
+          >("/api/parent/enrollments"),
+          apiGet<ApiEnvelope<NotificationRow[]>>("/api/parent/notifications"),
+        ]);
+
+      const wards = wardsRes.data;
+      const applications = applicationsRes.data;
+      const enrollments = enrollmentsRes.data;
+      const notifications = notificationsRes.data;
+
+      setWards(wards);
+      setAllSchools(schools);
+      setNotifications(notifications);
+
+      if (wards.length === 0) {
+        setContexts([]);
+        return;
+      }
+
+      const schoolMap = new Map(
+        schools.map((school) => [school.id, school])
+      );
+
+      const ctxs: WardContext[] = wards.map((ward) => ({
+        ward,
+        applications: applications
+          .filter((a) => a.ward_id === ward.id)
+          .map((a) => ({
+            ...a,
+            school: a.school ?? schoolMap.get(a.school_id),
+          })),
+        enrollments: enrollments
+          .filter((e) => e.ward_id === ward.id)
+          .map((e) => ({
+            ...e,
+            school: e.school ?? schoolMap.get(e.school_id),
+          })),
+      }));
+
+      setContexts(ctxs);
+    } catch (err) {
+      console.error(err);
+
+      setWards([]);
       setContexts([]);
+      setAllSchools([]);
+      setNotifications([]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const wardIds = wardsList.map((w) => w.id);
-    const [appsRes, enrollRes] = await Promise.all([
-      supabase
-        .from("applications")
-        .select("*")
-        .in("ward_id", wardIds)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("enrollments")
-        .select("*, class:classes(id,name)")
-        .in("ward_id", wardIds)
-        .order("enrolled_at", { ascending: false }),
-    ]);
-
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
-    const apps = (appsRes.data as Application[]) ?? [];
-    const enrolls = (enrollRes.data as (Enrollment & { class?: { id: string; name: string } | null })[]) ?? [];
-
-    const ctxs: WardContext[] = wardsList.map((ward) => ({
-      ward,
-      applications: apps
-        .filter((a) => a.ward_id === ward.id)
-        .map((a) => ({ ...a, school: schoolMap.get(a.school_id) })),
-      enrollments: enrolls
-        .filter((e) => e.ward_id === ward.id)
-        .map((e) => ({ ...e, school: schoolMap.get(e.school_id) })),
-    }));
-    setContexts(ctxs);
-
-    // notifications
-    const { data: notifs } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    setNotifications((notifs as NotificationRow[]) ?? []);
-
-    setLoading(false);
   }, [user, loadSchools]);
 
   useEffect(() => {

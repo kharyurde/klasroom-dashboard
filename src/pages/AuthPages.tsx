@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useRouter } from "../lib/router";
-import { supabase } from "../lib/supabase";
+import * as authApi from "../lib/authApi";
+import { ApiError } from "../lib/apiClient";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { Logo, Button } from "../components/ui";
@@ -10,83 +11,157 @@ export function ParentRegisterPage() {
   const { navigate } = useRouter();
   const toast = useToast();
   const { user } = useAuth();
-  const [form, setForm] = useState({ full_name: "", email: "", phone: "", password: "", confirm: "" });
+
+  const [form, setForm] = useState({
+    salutation: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirm: ""
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user && user.userType === "parent") navigate("/verify-email");
+    if (user && user.userType === "parent") navigate("/portal");
   }, [user, navigate]);
 
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (form.password !== form.confirm) {
-      setError("Passwords do not match.");
-      return;
-    }
-    if (form.password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    setLoading(true);
-    const { data, error: err } = await supabase.auth.signUp({
+  e.preventDefault();
+  setError(null);
+
+  if (form.password !== form.confirm) {
+    setError("Passwords do not match.");
+    return;
+  }
+
+  setLoading(true);
+  try {
+    await authApi.registerParent({
+      salutation: form.salutation || undefined,
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
       email: form.email.trim().toLowerCase(),
       password: form.password,
-      options: {
-        data: { user_type: "parent", full_name: form.full_name.trim(), phone: form.phone.trim() },
-        emailRedirectTo: window.location.origin + "#/verify-email",
-      },
+      phone: form.phone.trim() || undefined,
     });
-    setLoading(false);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    if (data.user && !data.session) {
-      toast({ kind: "success", title: "Account created", message: "Check your email for a verification link." });
-      navigate("/verify-email?email=" + encodeURIComponent(form.email.trim().toLowerCase()));
-    } else if (data.session) {
-      toast({ kind: "success", title: "Welcome to Klasroom" });
-      navigate("/portal");
-    }
-  };
 
+    toast({
+      kind: "success",
+      title: "Account created",
+      message: "Check your email for a verification link."
+    });
+
+    navigate("/verify-email?email=" + encodeURIComponent(form.email.trim().toLowerCase()));
+  } catch (err) {
+    if (err instanceof ApiError && err.details && typeof err.details === "object") {
+      const fieldErrors = err.details as Record<string, string[] | undefined>;
+      const firstMessage = Object.values(fieldErrors).flat().find(Boolean);
+      setError(firstMessage ?? err.message);
+    } else {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <AuthShell title="Create your parent account" subtitle="One login for all your children across every Klasroom school.">
       <form onSubmit={submit} className="space-y-4">
         {error && <FieldError>{error}</FieldError>}
-        <Field label="Full name" icon={<User className="h-4 w-4" />}>
-          <input className="input pl-10" placeholder="Adeola Okafor" required value={form.full_name}
-            onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
-        </Field>
-        <Field label="Email address" icon={<Mail className="h-4 w-4" />}>
-          <input type="email" className="input pl-10" placeholder="you@email.com" required value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        </Field>
-        <Field label="Phone (optional)" icon={<Phone className="h-4 w-4" />}>
-          <input className="input pl-10" placeholder="+234 801 234 5678" value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Password" icon={<Lock className="h-4 w-4" />}>
-            <input type="password" className="input pl-10" placeholder="••••••••" required value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })} />
+
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Title" icon={<User className="h-4 w-4" />}>
+            <select
+              className="input pl-10"
+              value={form.salutation}
+              onChange={(e) => setForm({ ...form, salutation: e.target.value })}
+            >
+              <option value="">Title</option>
+              <option value="Mr">Mr</option>
+              <option value="Mrs">Mrs</option>
+              <option value="Miss">Miss</option>
+              <option value="Ms">Ms</option>
+            </select>
           </Field>
-          <Field label="Confirm" icon={<Lock className="h-4 w-4" />}>
-            <input type="password" className="input pl-10" placeholder="••••••••" required value={form.confirm}
-              onChange={(e) => setForm({ ...form, confirm: e.target.value })} />
+
+          <Field label="First Name" icon={<User className="h-4 w-4" />}>
+            <input
+              className="input pl-10"
+              placeholder="Adeola"
+              required
+              value={form.firstName}
+              onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+            />
+          </Field>
+
+          <Field label="Last Name" icon={<User className="h-4 w-4" />}>
+            <input
+              className="input pl-10"
+              placeholder="Okafor"
+              required
+              value={form.lastName}
+              onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+            />
           </Field>
         </div>
+
+        <Field label="Email address" icon={<Mail className="h-4 w-4" />}>
+          <input
+            type="email"
+            className="input pl-10"
+            placeholder="you@email.com"
+            required
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </Field>
+
+        <Field label="Phone (optional)" icon={<Phone className="h-4 w-4" />}>
+          <input
+            className="input pl-10"
+            placeholder="+234 801 234 5678"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Password" icon={<Lock className="h-4 w-4" />}>
+            <input
+              type="password"
+              className="input pl-10"
+              placeholder="••••••••"
+              required
+              minLength={8}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+            <p className="mt-1 text-xs text-ink-500">
+              8+ characters, with an uppercase letter, a lowercase letter, and a number.
+            </p>
+          </Field>
+          <Field label="Confirm Password" icon={<Lock className="h-4 w-4" />}>
+            <input
+              type="password"
+              className="input pl-10"
+              placeholder="••••••••"
+              required
+              value={form.confirm}
+              onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+            />
+          </Field>
+        </div>
+
         <Button type="submit" loading={loading} className="w-full">
           Create account <ArrowRight className="h-4 w-4" />
         </Button>
+
         <p className="text-center text-sm text-ink-500">
           Already have an account?{" "}
           <Link to="/login" className="font-semibold text-brand-700 hover:underline">Sign in</Link>
-        </p>
-        <p className="text-center text-xs text-ink-400">
-          By creating an account you agree to Klasroom's terms. Parents never pay Klasroom — only school fees via the school's processor.
         </p>
       </form>
     </AuthShell>
@@ -95,14 +170,49 @@ export function ParentRegisterPage() {
 
 export function VerifyEmailPage() {
   const { route, navigate } = useRouter();
-  const { user, refresh } = useAuth();
-  const email = route.query.get("email") || user?.email || "";
-  const [resending, setResending] = useState(false);
-  const [checking, setChecking] = useState(false);
+  const { user } = useAuth();
   const toast = useToast();
 
+  const email = route.query.get("email") || user?.email || "";
+  const token = route.query.get("token");
+
+  const [verifying, setVerifying] = useState(Boolean(token));
+  const [verified, setVerified] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+
+  // Handle token from email link
   useEffect(() => {
-    if (user?.emailConfirmed && user.userType === "parent") {
+    if (!token) return;
+
+    const verifyToken = async () => {
+      try {
+        await authApi.verifyEmail(token);
+        setVerified(true);
+
+        toast({
+          kind: "success",
+          title: "Email verified successfully!",
+          message: "Logging you in automatically..."
+        });
+
+        // Auto redirect to parent portal
+        setTimeout(() => {
+          navigate("/portal");
+        }, 1800);
+      } catch (e) {
+        setVerifyError(e instanceof Error ? e.message : "This verification link is invalid or has expired.");
+      } finally {
+        setVerifying(false);
+      }
+    };
+
+    verifyToken();
+  }, [token, navigate, toast]);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user && user.userType === "parent") {
       navigate("/portal");
     }
   }, [user, navigate]);
@@ -113,90 +223,120 @@ export function VerifyEmailPage() {
       return;
     }
     setResending(true);
-    const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: window.location.origin + "#/verify-email" } });
-    setResending(false);
-    if (error) toast({ kind: "error", title: "Could not resend", message: error.message });
-    else toast({ kind: "success", title: "Email sent", message: "Check your inbox for the verification link." });
+    try {
+      await authApi.resendVerification(email);
+      toast({ 
+        kind: "success", 
+        title: "Email sent", 
+        message: "Check your inbox for the new verification link." 
+      });
+    } catch (e) {
+      toast({ 
+        kind: "error", 
+        title: "Failed to resend", 
+        message: e instanceof Error ? e.message : "Please try again." 
+      });
+    } finally {
+      setResending(false);
+    }
   };
 
-  const checkNow = async () => {
-    setChecking(true);
-    await refresh();
-    setChecking(false);
-    if (user?.emailConfirmed) navigate("/portal");
-  };
+  // When token is present (from email link)
+  if (token) {
+    return (
+      <AuthShell title="Verify your email" subtitle="Confirming your account...">
+        <div className="space-y-5">
+          {verifying ? (
+            <div className="card p-8 text-center">
+              <div className="animate-spin h-8 w-8 border-4 border-brand-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-ink-600">Verifying your email...</p>
+            </div>
+          ) : verified ? (
+            <div className="card bg-brand-50 ring-1 ring-brand-100 p-8 text-center">
+              <CheckCircle2 className="h-16 w-16 text-brand-600 mx-auto mb-4" />
+              <p className="text-2xl font-semibold text-brand-900">Email Verified Successfully!</p>
+              <p className="text-brand-700 mt-2">Logging you in automatically...</p>
+            </div>
+          ) : (
+            <div className="card bg-rose-50 ring-1 ring-rose-100 p-6">
+              <AlertTriangle className="h-8 w-8 text-rose-600 mx-auto mb-3" />
+              <p className="font-semibold text-rose-900">Verification Failed</p>
+              <p className="text-rose-700 mt-2">{verifyError}</p>
+            </div>
+          )}
 
+          {!verified && (
+            <Link to="/login" className="btn-primary w-full justify-center block text-center py-3">
+              Go to Sign In <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
+      </AuthShell>
+    );
+  }
+
+  // Normal verification waiting page
   return (
     <AuthShell title="Verify your email" subtitle="We sent a verification link to your inbox.">
       <div className="space-y-5">
-        <div className="card bg-brand-50 ring-1 ring-brand-100 p-4 flex items-start gap-3">
-          <Mail className="h-5 w-5 text-brand-700 mt-0.5 shrink-0" />
-          <div className="text-sm">
+        <div className="card bg-brand-50 ring-1 ring-brand-100 p-6 flex items-start gap-4">
+          <Mail className="h-6 w-6 text-brand-700 mt-0.5" />
+          <div>
             <p className="font-semibold text-brand-900">Check your email</p>
-            <p className="text-brand-800/80 mt-0.5">
-              {email ? <>Click the link we sent to <span className="font-semibold">{email}</span>.</> : "Click the link we sent to your inbox."}
+            <p className="text-brand-800 mt-1">
+              {email ? (
+                <>Click the link we sent to <strong>{email}</strong></>
+              ) : (
+                "Click the verification link we sent to your inbox."
+              )}
             </p>
           </div>
         </div>
-        <div className="card p-4 flex items-start gap-3">
-          <CheckCircle2 className="h-5 w-5 text-brand-600 mt-0.5 shrink-0" />
-          <div className="text-sm text-ink-700">
-            <p className="font-semibold">Already verified?</p>
-            <p className="text-ink-500 mt-0.5">If you've clicked the link, sign in to continue.</p>
-          </div>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Button onClick={checkNow} loading={checking} className="w-full">
-            I've verified — continue
-          </Button>
-          <Button variant="secondary" onClick={resend} loading={resending} className="w-full">
-            Resend verification email
-          </Button>
-        </div>
+
+        <Button variant="secondary" onClick={resend} loading={resending} className="w-full">
+          Resend verification email
+        </Button>
+
         <p className="text-center text-sm text-ink-500">
           Wrong email?{" "}
-          <Link to="/register" className="font-semibold text-brand-700 hover:underline">Start over</Link>
+          <Link to="/register" className="font-semibold text-brand-700 hover:underline">
+            Register again
+          </Link>
         </p>
       </div>
     </AuthShell>
   );
 }
 
+
 export function LoginPage() {
   const { navigate } = useRouter();
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const toast = useToast();
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
-      if (!user.emailConfirmed && user.userType === "parent") navigate("/verify-email?email=" + encodeURIComponent(user.email));
-      else if (user.userType === "parent") navigate("/portal");
-      else if (user.userType === "school_admin") navigate("/admin");
-    }
+    if (user) redirectForRole(user.userType, navigate);
   }, [user, navigate]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { data, error: err } = await supabase.auth.signInWithPassword({
-      email: form.email.trim().toLowerCase(),
-      password: form.password,
-    });
-    setLoading(false);
-    if (err) {
-      setError(err.message);
-      return;
+    try {
+      const authUser = await login(form.email.trim().toLowerCase(), form.password);
+      toast({ kind: "success", title: "Signed in" });
+      if (authUser.forcePasswordChange) {
+        toast({ kind: "info", title: "Please change your password", message: "Your school administrator reset your password — set a new one soon." });
+      }
+      redirectForRole(authUser.userType, navigate);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign in failed");
+    } finally {
+      setLoading(false);
     }
-    const meta = (data.user?.user_metadata ?? {}) as Record<string, string>;
-    const ut = meta.user_type || "parent";
-    toast({ kind: "success", title: "Signed in" });
-    if (ut === "school_admin") navigate("/admin");
-    else if (!data.user?.email_confirmed_at) navigate("/verify-email?email=" + encodeURIComponent(form.email.trim().toLowerCase()));
-    else navigate("/portal");
   };
 
   return (
@@ -221,6 +361,30 @@ export function LoginPage() {
       </form>
     </AuthShell>
   );
+}
+
+function redirectForRole(userType: authApi.UserRole, navigate: (path: string) => void): void {
+  switch (userType) {
+    case "platform_admin":
+      navigate("/platform");
+      return;
+    case "school_admin":
+    case "principal":
+    case "vice_principal":
+    case "accountant":
+    case "staff":
+      navigate("/admin");
+      return;
+    case "teacher":
+      navigate("/teacher");
+      return;
+    case "student":
+      navigate("/student");
+      return;
+    case "parent":
+    default:
+      navigate("/portal");
+  }
 }
 
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {

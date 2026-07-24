@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useRouter } from "../lib/router";
-import { supabase } from "../lib/supabase";
+import { apiGet } from "../lib/apiClient";
 import { useAuth } from "../lib/auth";
 import { Logo, Button, Spinner, Badge, EmptyState } from "../components/ui";
 import { Search, MapPin, ArrowRight, GraduationCap, Building2, CheckCircle2 } from "lucide-react";
 import { formatMoney } from "../lib/format";
 import type { School } from "../lib/types";
+
+type ApiEnvelope<T> = { success: boolean; statusCode: number; message: string; data: T; errors: unknown; timestamp: string };
 
 export function ApplyDiscoveryPage() {
   const { user } = useAuth();
@@ -15,15 +17,12 @@ export function ApplyDiscoveryPage() {
   const [q, setQ] = useState("");
 
   useEffect(() => {
-    supabase
-      .from("schools")
-      .select("*")
-      .eq("status", "active")
-      .order("name")
-      .then(({ data }) => {
-        setSchools((data as School[]) ?? []);
+    apiGet<ApiEnvelope<School[]>>("/api/schools", { skipAuth: true })
+      .then((response) => {
+        setSchools(response.data ?? []);
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   const filtered = useMemo(() => {

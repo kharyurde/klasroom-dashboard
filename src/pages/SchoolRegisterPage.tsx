@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useRouter } from "../lib/router";
-import { supabase } from "../lib/supabase";
-import { useToast } from "../lib/toast";
+import * as authApi from "../lib/authApi";
 import { useAuth } from "../lib/auth";
 import { AuthShell } from "./AuthPages";
 import { Button } from "../components/ui";
@@ -10,7 +9,6 @@ import { Building2, Mail, Lock, User, Phone, ArrowRight, AlertTriangle, CheckCir
 export function SchoolRegisterPage() {
   const { navigate } = useRouter();
   const { user } = useAuth();
-  const toast = useToast();
   const [form, setForm] = useState({
     schoolName: "", tagline: "", city: "", state: "", address: "", phone: "", schoolEmail: "",
     applicationFee: "15000", assessmentFee: "20000", acceptanceFee: "75000",
@@ -24,9 +22,6 @@ export function SchoolRegisterPage() {
     if (user?.userType === "school_admin") navigate("/admin");
   }, [user, navigate]);
 
-  const slugify = (s: string) =>
-    s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -35,71 +30,31 @@ export function SchoolRegisterPage() {
       return;
     }
     setLoading(true);
-
-    // 1. Create the school row first (public insert allowed by RLS self-signup).
-    const slug = slugify(form.schoolName) + "-" + Math.random().toString(36).slice(2, 6);
-    const { data: school, error: schoolErr } = await supabase
-      .from("schools")
-      .insert({
-        name: form.schoolName.trim(),
-        slug,
-        tagline: form.tagline.trim() || null,
-        address: form.address.trim() || null,
-        city: form.city.trim() || null,
-        state: form.state.trim() || null,
-        phone: form.phone.trim() || null,
-        email: form.schoolEmail.trim().toLowerCase() || null,
-        application_fee: Number(form.applicationFee) || 0,
-        assessment_fee: Number(form.assessmentFee) || 0,
-        acceptance_fee: Number(form.acceptanceFee) || 0,
-        subscription_status: "trial",
-        trial_ends_at: new Date(Date.now() + 14 * 86400000).toISOString(),
-      })
-      .select()
-      .single();
-
-    if (schoolErr) {
-      setLoading(false);
-      setError(schoolErr.message);
-      return;
-    }
-
-    // 2. Create the admin auth user with user_type=school_admin + school_id in metadata.
-    const { data, error: authErr } = await supabase.auth.signUp({
-      email: form.adminEmail.trim().toLowerCase(),
-      password: form.password,
-      options: {
-        data: {
-          user_type: "school_admin",
-          school_id: school.id,
-          full_name: form.adminName.trim(),
-          role: "admin",
-          phone: form.adminPhone.trim(),
-        },
-        emailRedirectTo: window.location.origin + "#/login",
-      },
-    });
-
-    setLoading(false);
-    if (authErr) {
-      setError(authErr.message + " (Your school was created — please retry with a different admin email, or sign in if this account already exists.)");
-      return;
-    }
-
-    // 3. Create a default academic session.
-    await supabase.from("academic_sessions").insert({
-      school_id: school.id,
-      name: "2026/2027",
-      start_date: "2026-09-01",
-      end_date: "2027-07-31",
-      is_current: true,
-    });
-
-    if (data.session) {
-      toast({ kind: "success", title: "School onboarded", message: "Welcome to Klasroom." });
-      navigate("/admin");
-    } else {
+    try {
+      await authApi.registerSchool({
+        schoolName: form.schoolName.trim(),
+        tagline: form.tagline.trim() || undefined,
+        address: form.address.trim() || undefined,
+        city: form.city.trim() || undefined,
+        state: form.state.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        schoolEmail: form.schoolEmail.trim().toLowerCase() || undefined,
+        applicationFee: Number(form.applicationFee) || 0,
+        assessmentFee: Number(form.assessmentFee) || 0,
+        acceptanceFee: Number(form.acceptanceFee) || 0,
+        adminEmail: form.adminEmail.trim().toLowerCase(),
+        adminPassword: form.password,
+        adminPhone: form.adminPhone.trim() || undefined,
+        fullName: form.adminName.trim(),
+      });
       setDone(true);
+    } catch (err) {
+      setError(
+        (err instanceof Error ? err.message : "Registration failed") +
+          " If your school was already created, sign in instead or try a different admin email.",
+      );
+    } finally {
+      setLoading(false);
     }
   };
 

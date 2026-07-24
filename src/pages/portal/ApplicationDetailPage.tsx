@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
 import { Button, Spinner, Badge, EmptyState, Modal } from "../../components/ui";
-import { processPayment } from "../../lib/payments";
+import { processLegacyPayment as processPayment } from "../../lib/legacyPayments"; // TODO(migration): see legacyPayments.ts
 import { notifyParent } from "../../lib/notify";
 import { downloadReceipt, prettyType } from "../../lib/receipt";
 import { formatMoney, formatDateTime } from "../../lib/format";

@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { Button, Spinner, Badge, EmptyState } from "../components/ui";
-import { processPayment } from "../lib/payments";
+import { processLegacyPayment as processPayment } from "../lib/legacyPayments"; // TODO(migration): see legacyPayments.ts
 import { notifyParent } from "../lib/notify";
 import { formatMoney } from "../lib/format";
 import { ArrowLeft, ArrowRight, CheckCircle2, AlertTriangle, CreditCard, Building2, User, Lock } from "lucide-react";

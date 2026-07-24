@@ -58,7 +58,9 @@ export function useStudentData(): StudentData {
       setLoading(false);
       return;
     }
-    const st = user.profile as Student | null;
+    // TODO(migration): user.profile is a thin compat shim (full_name/school_id/phone
+    // only), not a full Student row, until the Express API has a students endpoint.
+    const st = user.profile as unknown as Student | null;
     if (!st?.school_id) { setLoading(false); return; }
     setLoading(true);
     setStudent(st);

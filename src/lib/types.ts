@@ -154,6 +154,7 @@ export type Payment = {
   school_id: string;
   parent_id: string;
   fee_structure_id: string | null;
+  fee_charge_id: string | null;
   type: PaymentType;
   description: string | null;
   amount: number;
@@ -161,7 +162,86 @@ export type Payment = {
   status: "pending" | "paid" | "failed" | "refunded";
   reference: string | null;
   method: string | null;
+  provider: string | null;
+  provider_reference: string | null;
+  idempotency_key: string | null;
+  gateway_response: Record<string, unknown> | null;
+  webhook_processed_at: string | null;
   paid_at: string | null;
+  created_at: string;
+};
+
+export type FeeChargeStatus = "open" | "partial" | "paid" | "waived" | "overdue" | "cancelled";
+
+export type FeeCharge = {
+  id: string;
+  school_id: string;
+  ward_id: string;
+  enrollment_id: string | null;
+  fee_structure_id: string | null;
+  session_id: string | null;
+  term: string | null;
+  description: string;
+  amount: number;
+  waived_amount: number;
+  waiver_reason: string | null;
+  currency: string;
+  due_date: string | null;
+  status: FeeChargeStatus;
+  created_at: string;
+};
+
+export type WardLedgerEntry = {
+  id: string;
+  school_id: string;
+  ward_id: string;
+  entry_type: "charge" | "payment";
+  description: string;
+  debit: number;
+  credit: number;
+  currency: string;
+  entry_date: string;
+  status: string;
+};
+
+export type StatementEntry = WardLedgerEntry & { balance: number };
+
+export type BankSettlement = {
+  id: string;
+  school_id: string | null;
+  provider: string;
+  settlement_reference: string;
+  amount: number;
+  currency: string;
+  settled_at: string;
+  raw_payload: Record<string, unknown> | null;
+  status: "unmatched" | "matched" | "partial" | "disputed";
+  created_at: string;
+};
+
+export type PaymentReconciliation = {
+  id: string;
+  payment_id: string;
+  settlement_id: string | null;
+  school_id: string;
+  status: "unmatched" | "matched" | "disputed";
+  variance: number;
+  matched_at: string | null;
+  matched_by: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type AuditLog = {
+  id: string;
+  actor_id: string | null;
+  actor_role: string | null;
+  action: "INSERT" | "UPDATE" | "DELETE";
+  table_name: string;
+  record_id: string | null;
+  school_id: string | null;
+  old_data: Record<string, unknown> | null;
+  new_data: Record<string, unknown> | null;
   created_at: string;
 };
 

@@ -1,65 +1,65 @@
-import { supabase } from "./supabase";
-import { genReference } from "./format";
-import type { Payment, PaymentType, Ward, School } from "./types";
+import { initializePayment, idempotencyKeyFor, isNoGatewayConfigured, type PaymentType } from "./paymentsApi";
+import type { School, Ward } from "./types";
 
 export type PayInput = {
   school: Pick<School, "id" | "currency" | "name" | "application_fee" | "assessment_fee" | "acceptance_fee">;
   ward: Pick<Ward, "id" | "first_name" | "last_name">;
   type: PaymentType;
   amount: number;
-  applicationId?: string;
-  enrollmentId?: string;
+  payerEmail: string;
+  payerName?: string;
+  /** Opaque reference to whatever this payment settles (an application, an enrollment, ...). */
+  purposeType?: string;
+  purposeId?: string;
   description?: string;
 };
 
+export class NoGatewayConfiguredError extends Error {
+  constructor(schoolName: string) {
+    super(`${schoolName} hasn't connected a payment processor yet. Please contact the school.`);
+  }
+}
+
 /**
- * Simulated payment processor.
+ * Starts a real payment: calls the Express API to create a pending payment and get
+ * a hosted checkout URL (Paystack/Flutterwave), then redirects the browser there.
+ * This call does not resolve on success — the page navigates away. When the parent
+ * returns (the gateway redirects to PAYMENT_CALLBACK_URL), PaymentCallbackPage calls
+ * the API's verify endpoint to confirm the outcome.
  *
- * Klasroom is multi-tenant SaaS: each school is a paying tenant and connects its own
- * payment-processor account (Stripe Connect). When Stripe is configured for this project
- * we swap the simulated card form below for a Stripe Checkout / Payment Element session
- * created on an edge function with the school's connected account id. Until then, the
- * flow is structurally identical — collect intent, "charge", mark paid, emit receipt.
+ * Idempotency: the same (school, ward, type, purpose) reuses one idempotency key for
+ * the duration of the browser session, so retrying after a network hiccup resumes the
+ * same payment instead of creating a duplicate. The key is only ever known to the
+ * frontend and the API — nothing here talks to a database directly.
  */
-export async function processPayment(input: PayInput): Promise<Payment> {
-  const { data: session } = await supabase.auth.getSession();
-  const userId = session.session?.user.id;
-  if (!userId) throw new Error("Not signed in");
+export async function startPayment(input: PayInput): Promise<void> {
+  const scope = `${input.school.id}_${input.ward.id}_${input.type}_${input.purposeType ?? ""}_${input.purposeId ?? ""}`;
+  const idempotencyKey = idempotencyKeyFor(scope);
 
-  const reference = genReference(input.type.slice(0, 3).toUpperCase());
-
-  const { data: payment, error } = await supabase
-    .from("payments")
-    .insert({
-      application_id: input.applicationId ?? null,
-      enrollment_id: input.enrollmentId ?? null,
-      ward_id: input.ward.id,
-      school_id: input.school.id,
-      parent_id: userId,
+  try {
+    const { payment, checkoutUrl } = await initializePayment({
+      schoolId: input.school.id,
       type: input.type,
       amount: input.amount,
       currency: input.school.currency,
       description: input.description ?? defaultDescription(input.type, input.ward),
-      status: "pending",
-      reference,
-      method: "card",
-    })
-    .select()
-    .single();
+      purposeType: input.purposeType,
+      purposeId: input.purposeId,
+      payerEmail: input.payerEmail,
+      payerName: input.payerName,
+      idempotencyKey,
+    });
 
-  if (error) throw new Error(error.message);
+    if (!checkoutUrl) throw new Error("The payment provider did not return a checkout link.");
 
-  await simulateCardCharge();
-
-  const { data: paid, error: updErr } = await supabase
-    .from("payments")
-    .update({ status: "paid", paid_at: new Date().toISOString() })
-    .eq("id", payment.id)
-    .select()
-    .single();
-
-  if (updErr) throw new Error(updErr.message);
-  return paid as Payment;
+    // Stash the reference so the callback page (which only gets ?reference= back
+    // from the gateway) can show useful context immediately, before verifying.
+    sessionStorage.setItem("kr_pending_payment_reference", payment.reference);
+    window.location.href = checkoutUrl;
+  } catch (e) {
+    if (isNoGatewayConfigured(e)) throw new NoGatewayConfiguredError(input.school.name);
+    throw e;
+  }
 }
 
 function defaultDescription(type: PaymentType, ward: Pick<Ward, "first_name" | "last_name">): string {
@@ -72,13 +72,4 @@ function defaultDescription(type: PaymentType, ward: Pick<Ward, "first_name" | "
     other_fees: `Fee payment for ${name}`,
   };
   return map[type];
-}
-
-function simulateCardCharge(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (Math.random() < 0.98) resolve();
-      else reject(new Error("Your card was declined. Please try again or use another card."));
-    }, 1700);
-  });
 }

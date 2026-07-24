@@ -18,6 +18,8 @@ import { WardFormPage } from "./pages/portal/WardFormPage";
 import { ApplicationsListPage } from "./pages/portal/ApplicationsListPage";
 import { ApplicationDetailPage } from "./pages/portal/ApplicationDetailPage";
 import { PaymentsPage } from "./pages/portal/PaymentsPage";
+import { StatementOfAccountPage } from "./pages/portal/StatementOfAccountPage";
+import { PaymentCallbackPage } from "./pages/portal/PaymentCallbackPage";
 import { ResultsPage } from "./pages/portal/ResultsPage";
 import { AttendancePage } from "./pages/portal/AttendancePage";
 import { ComplaintsPage } from "./pages/portal/ComplaintsPage";
@@ -31,6 +33,7 @@ import { AdminClassesPage } from "./pages/admin/AdminClassesPage";
 import { AdminComplaintsPage } from "./pages/admin/AdminComplaintsPage";
 import { AdminRequestsPage } from "./pages/admin/AdminRequestsPage";
 import { AdminSettingsPage } from "./pages/admin/AdminSettingsPage";
+import { AdminAuditLogPage } from "./pages/admin/AdminAuditLogPage";
 import { AdminTeachersPage } from "./pages/admin/AdminTeachersPage";
 import { AdminAcademicPage } from "./pages/admin/AdminAcademicPage";
 import { TeacherDashboardPage } from "./pages/teacher/TeacherDashboardPage";
@@ -52,6 +55,7 @@ import { PlatformSchoolsPage } from "./pages/platform/PlatformSchoolsPage";
 import { PlatformPaymentsPage } from "./pages/platform/PlatformPaymentsPage";
 import { PlatformStudentsPage } from "./pages/platform/PlatformStudentsPage";
 import { PlatformSettingsPage } from "./pages/platform/PlatformSettingsPage";
+import { PlatformReconciliationPage } from "./pages/platform/PlatformReconciliationPage";
 
 export default function App() {
   return (
@@ -97,8 +101,15 @@ function Router() {
     );
   }
 
-  // Public routes
-  if (path === "/" || path === "") return <LandingPage />;
+// Public routes
+  if (path === "/" || path === "") {
+    const token = route.query.get("token");
+    if (token) {
+      return <VerifyEmailPage />;
+    }
+    return <LandingPage />;
+  }
+
   if (path === "/login") return <LoginPage />;
   if (path === "/register") return <ParentRegisterPage />;
   if (path === "/verify-email") return <VerifyEmailPage />;
@@ -167,6 +178,8 @@ function ParentRoutes() {
   if (path === "/portal/applications") return <ApplicationsListPage />;
   if (path.startsWith("/portal/applications/")) return <ApplicationDetailPage />;
   if (path === "/portal/payments") return <PaymentsPage />;
+  if (path === "/portal/statement") return <StatementOfAccountPage />;
+  if (path === "/portal/payments/callback") return <PaymentCallbackPage />;
   if (path === "/portal/results") return <ResultsPage />;
   if (path === "/portal/attendance") return <AttendancePage />;
   if (path === "/portal/complaints") return <ComplaintsPage />;
@@ -188,6 +201,7 @@ function AdminRoutes() {
   if (path === "/admin/complaints") return <AdminComplaintsPage />;
   if (path === "/admin/requests") return <AdminRequestsPage />;
   if (path === "/admin/settings") return <AdminSettingsPage />;
+  if (path === "/admin/audit-log") return <AdminAuditLogPage />;
   return <NotFound />;
 }
 
@@ -225,6 +239,7 @@ function PlatformRoutes() {
   if (path === "/platform/payments") return <PlatformPaymentsPage />;
   if (path === "/platform/students") return <PlatformStudentsPage />;
   if (path === "/platform/settings") return <PlatformSettingsPage />;
+  if (path === "/platform/reconciliation") return <PlatformReconciliationPage />;
   return <NotFound />;
 }
 

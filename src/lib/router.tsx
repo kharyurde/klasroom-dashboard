@@ -9,13 +9,22 @@ export type Route = {
 
 function parse(): Route {
   const hash = window.location.hash.slice(1) || "/";
-  const [rawPath, rawQuery = ""] = hash.split("?");
+  const [rawPath, rawHashQuery = ""] = hash.split("?");
   const path = rawPath || "/";
   const segments = path.split("/").filter(Boolean);
+
+  // Some mail clients/security scanners strip URL fragments when relaying or
+  // pre-checking links — especially for http://localhost links they can't safely
+  // fetch — which turns a hash-based deep link (.../#/verify-email?token=...) into
+  // a bare real query string on the root path (.../?token=...). Fall back to the
+  // real query string whenever the hash itself didn't carry one, so those links
+  // still work instead of silently landing on the homepage.
+  const query = new URLSearchParams(rawHashQuery || window.location.search);
+
   return {
     path,
     segments,
-    query: new URLSearchParams(rawQuery),
+    query,
     hash,
   };
 }

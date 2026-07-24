@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Link, useRouter } from "../../lib/router";
-import { supabase } from "../../lib/supabase";
+import { apiPost } from "../../lib/apiClient";
 import { useAuth } from "../../lib/auth";
 import { useToast } from "../../lib/toast";
 import { Button } from "../../components/ui";
 import { ArrowLeft, ArrowRight, User, AlertTriangle } from "lucide-react";
+
+type ApiEnvelope<T> = { success: boolean; statusCode: number; message: string; data: T; errors: unknown; timestamp: string };
+type Ward = { id: string; [key: string]: unknown };
 
 export function WardFormPage() {
   const { user } = useAuth();
@@ -23,24 +26,23 @@ export function WardFormPage() {
     setError(null);
     if (!user) return;
     setLoading(true);
-    const { data, error: err } = await supabase
-      .from("wards")
-      .insert({
-        parent_id: user.id,
+    let data: Ward;
+    try {
+      const response = await apiPost<ApiEnvelope<Ward>>("/api/parent/wards", {
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         date_of_birth: form.date_of_birth || null,
         gender: form.gender as "male" | "female" | "other",
         blood_group: form.blood_group || null,
         medical_notes: form.medical_notes || null,
-      })
-      .select()
-      .single();
-    setLoading(false);
-    if (err) {
-      setError(err.message);
+      });
+      data = response.data;
+    } catch (err) {
+      setLoading(false);
+      setError(err instanceof Error ? err.message : "Failed to add ward.");
       return;
     }
+    setLoading(false);
     toast({ kind: "success", title: "Ward added", message: `${form.first_name} ${form.last_name} added to your account.` });
     if (next) {
       navigate(next + (next.includes("?") ? "&" : "?") + "ward=" + data.id);

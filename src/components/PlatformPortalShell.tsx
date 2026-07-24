@@ -5,7 +5,7 @@ import { Logo, Avatar, Spinner } from "./ui";
 import { useToast } from "../lib/toast";
 import {
   LayoutDashboard, Building2, CreditCard, GraduationCap, Settings,
-  LogOut, Menu, X, Shield,
+  LogOut, Menu, X, Shield, Landmark,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -19,6 +19,7 @@ export function PlatformPortalShell({ children }: { children: ReactNode }) {
     { to: "/platform", label: "Dashboard", icon: LayoutDashboard, exact: true },
     { to: "/platform/schools", label: "Schools", icon: Building2 },
     { to: "/platform/payments", label: "Payments", icon: CreditCard },
+    { to: "/platform/reconciliation", label: "Reconciliation", icon: Landmark },
     { to: "/platform/students", label: "Students", icon: GraduationCap },
     { to: "/platform/settings", label: "Settings", icon: Settings },
   ];

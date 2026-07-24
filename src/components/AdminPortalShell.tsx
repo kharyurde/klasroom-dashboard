@@ -6,7 +6,7 @@ import { Logo, Avatar, Spinner, Badge } from "./ui";
 import { useToast } from "../lib/toast";
 import {
   LayoutDashboard, FileText, Users, CreditCard, Settings, LogOut,
-  Menu, X, Building2, MessageSquare, ClipboardList, GraduationCap, UserCog, BookOpen,
+  Menu, X, Building2, MessageSquare, ClipboardList, GraduationCap, UserCog, BookOpen, ShieldCheck,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -35,6 +35,7 @@ export function AdminPortalShell({ children }: { children: ReactNode }) {
     { to: "/admin/payments", label: "Payments", icon: CreditCard },
     { to: "/admin/complaints", label: "Complaints", icon: MessageSquare },
     { to: "/admin/requests", label: "Requests", icon: ClipboardList },
+    { to: "/admin/audit-log", label: "Audit log", icon: ShieldCheck },
     { to: "/admin/settings", label: "Settings", icon: Settings },
   ];
 
